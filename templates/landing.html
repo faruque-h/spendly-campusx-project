@@ -2,6 +2,83 @@
 
 {% block title %}Spendly — Track Every Rupee{% endblock %}
 
+{% block head %}
+<style>
+    .hero-btn {
+        font-family: inherit;
+        border: 0;
+        cursor: pointer;
+    }
+
+    .video-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: rgba(15, 15, 15, 0.78);
+    }
+
+    .video-modal[hidden] { display: none; }
+
+    .video-modal__dialog {
+        position: relative;
+        width: 100%;
+        max-width: 900px;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+    }
+
+    .video-modal__frame {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+    }
+
+    .video-modal__frame iframe {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+
+    .video-modal__close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.92);
+        color: #111;
+        font-family: inherit;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .video-modal__close:hover { background: #fff; }
+
+    .video-modal__close:focus-visible {
+        outline: 3px solid #0f9d68;
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 600px) {
+        .video-modal { padding: 1rem; }
+        .video-modal__close { top: 0.5rem; right: 0.5rem; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <section class="hero">
@@ -20,7 +97,7 @@
         </p>
         <div class="hero-actions">
             <a href="{{ url_for('register') }}" class="hero-btn">Create free account</a>
-            <a href="#features" class="hero-btn">See how it works</a>
+            <button type="button" class="hero-btn" id="how-it-works-trigger">See how it works</button>
         </div>
     </div>
 
@@ -102,4 +179,61 @@
     </div>
 </section>
 
+<div class="video-modal" id="how-it-works-modal" role="dialog" aria-modal="true"
+     aria-label="How Spendly works" hidden>
+    <div class="video-modal__dialog">
+        <button type="button" class="video-modal__close" aria-label="Close video">
+            <span aria-hidden="true">&times;</span>
+        </button>
+        <div class="video-modal__frame">
+            <iframe
+                data-src="https://www.youtube.com/embed/M7lc1UVf-VE?rel=0"
+                title="How Spendly works"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen></iframe>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        var modal = document.getElementById('how-it-works-modal');
+        var trigger = document.getElementById('how-it-works-trigger');
+        var closeButton = modal.querySelector('.video-modal__close');
+        var iframe = modal.querySelector('iframe');
+        var videoSrc = iframe.getAttribute('data-src');
+
+        function openModal() {
+            iframe.src = videoSrc;
+            modal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            closeButton.focus();
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            iframe.src = 'about:blank';
+            document.body.style.overflow = '';
+            trigger.focus();
+        }
+
+        trigger.addEventListener('click', openModal);
+        closeButton.addEventListener('click', closeModal);
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
+    })();
+</script>
 {% endblock %}
