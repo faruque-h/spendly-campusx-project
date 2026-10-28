@@ -14,7 +14,7 @@
 
         <div class="auth-card">
             {% if error %}
-            <div class="auth-error">{{ error }}</div>
+            <div class="auth-error" role="alert">{{ error }}</div>
             {% endif %}
 
             <form method="POST" action="/register">
@@ -22,18 +22,21 @@
                     <label for="name">Full name</label>
                     <input type="text" id="name" name="name"
                            class="form-input" placeholder="Nitish Kumar"
+                           value="{{ name or '' }}" autocomplete="name"
                            required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="email">Email address</label>
                     <input type="email" id="email" name="email"
                            class="form-input" placeholder="nitish@example.com"
+                           value="{{ email or '' }}" autocomplete="email"
                            required>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password"
                            class="form-input" placeholder="Min. 8 characters"
+                           minlength="8" autocomplete="new-password"
                            required>
                 </div>
                 <button type="submit" class="btn-submit">Create account</button>
