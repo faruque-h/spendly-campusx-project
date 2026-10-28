@@ -8,9 +8,10 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from database.db import get_db, init_db, seed_db
 
@@ -30,6 +31,34 @@ with app.app_context():
 
 
 # ------------------------------------------------------------------ #
+# Template globals                                                    #
+# ------------------------------------------------------------------ #
+
+@app.context_processor
+def inject_current_user():
+    """Expose the signed-in user to every template as `current_user`."""
+    user_id = session.get("user_id")
+    if user_id is None:
+        return {"current_user": None}
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, name, email FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        # Stale cookie for a user that no longer exists: treat as anonymous.
+        session.clear()
+        return {"current_user": None}
+
+    return {"current_user": {"id": row["id"], "name": row["name"],
+                             "email": row["email"]}}
+
+
+# ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
 
@@ -40,6 +69,10 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    # Signed-in users have no reason to see the sign-up form.
+    if session.get("user_id") is not None:
+        return redirect(url_for("landing"))
+
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         email = (request.form.get("email") or "").strip().lower()
@@ -86,9 +119,49 @@ def register():
     return render_template("register.html", name="", email="")
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if request.method == "GET" and session.get("user_id") is not None:
+        return redirect(url_for("landing"))
+
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""  # never strip passwords
+
+        if not email or not password:
+            return render_template(
+                "login.html", email=email,
+                error="Please enter your email and password.",
+            ), 400
+
+        conn = get_db()
+        try:
+            user = conn.execute(
+                "SELECT id, name, password_hash FROM users "
+                "WHERE lower(email) = ?",
+                (email,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        verified = False
+        if user is not None:
+            try:
+                verified = check_password_hash(user["password_hash"], password)
+            except ValueError:
+                # Malformed/unsupported stored hash — treat as a mismatch.
+                verified = False
+
+        if not verified:
+            return render_template("login.html", email=email,
+                                   error="Invalid email or password."), 401
+
+        session.clear()
+        session["user_id"] = user["id"]
+        flash(f"Welcome back, {user['name']}.", "success")
+        return redirect(url_for("landing"))
+
+    return render_template("login.html", email="")
 
 
 @app.route("/terms")
@@ -101,14 +174,16 @@ def privacy():
     return render_template("privacy.html")
 
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been signed out.", "success")
+    return redirect(url_for("landing"))
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/logout")
-def logout():
-    return "Logout — coming in Step 3"
-
 
 @app.route("/profile")
 def profile():
