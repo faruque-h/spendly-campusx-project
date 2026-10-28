@@ -7,5 +7,5 @@ __pycache__/
 *.pyo
 .env
 .DS_Store
-.opencode/summaries/
-# .opencode/plans/
+.pi/summaries/
+# .pi/plans/

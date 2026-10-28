@@ -1,6 +1,6 @@
 # Implementation Plan — Step 1: Database Setup
 
-**Spec:** `.opencode/specs/01-database-setup.md`
+**Spec:** `.pi/specs/01-database-setup.md`
 **Files to change:** `database/db.py`, `app.py`
 **Files to create:** none
 **Status:** plan only — no code changed

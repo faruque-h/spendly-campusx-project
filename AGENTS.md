@@ -33,7 +33,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 - `seed_db()` inserts only when `users` is empty, so it is safe on every startup. Demo login: `demo@spendly.com` / `demo123`.
 - Categories are a fixed list in `CATEGORIES` (`db.py`): Food, Transport, Bills, Health, Entertainment, Shopping, Other.
 - Raw SQL with `?` placeholders only — no ORM. `get_db()` returns a new connection per call; callers must close it.
-- See `.opencode/specs/01-database-setup.md` for the schema contract.
+- See `.pi/specs/01-database-setup.md` for the schema contract.
 
 ## Implemented vs stub routes
 

@@ -14,8 +14,8 @@ User input: `$ARGUMENTS`
 ## Step 1 — Check the working directory is clean
 
 Run `git status` and look for uncommitted, unstaged, or untracked files. Ignore
-the agent config directory `.pi/` — it is intentionally untracked and must not
-block this command:
+the agent config directory `.pi/` — it is excluded from this check because this
+command writes the spec there:
 
 ```bash
 git status --porcelain -- . ':(exclude).pi'
@@ -81,7 +81,7 @@ Read these files before writing the spec:
 - `database/db.py` — existing schema and helpers
 - `templates/base.html` — blocks available to new templates
 - `static/css/style.css` — design tokens in `:root`
-- All files in `.opencode/specs/` — avoid duplicating existing specs
+- All files in `.pi/specs/` — avoid duplicating existing specs
 
 ## Step 7 — Write the spec
 
@@ -137,7 +137,7 @@ A specific, testable checklist. Each item must be verifiable by running the app.
 
 ## Step 8 — Save the spec
 
-Target path: `.opencode/specs/<step_number>-<feature_slug>.md`
+Target path: `.pi/specs/<step_number>-<feature_slug>.md`
 
 If that file already exists, stop and ask whether to overwrite or pick a new
 slug. Do not overwrite an existing spec without confirmation.
@@ -148,13 +148,13 @@ Print a short summary in this exact format:
 
 ```text
 Branch:    <branch_name>
-Spec file: .opencode/specs/<step_number>-<feature_slug>.md
+Spec file: .pi/specs/<step_number>-<feature_slug>.md
 Title:     <feature_title>
 ```
 
 Then tell the user:
 
-> Review the spec at `.opencode/specs/<step_number>-<feature_slug>.md` and tell
+> Review the spec at `.pi/specs/<step_number>-<feature_slug>.md` and tell
 > me when you're ready to begin implementation.
 
 Do not print the full spec in the chat window unless explicitly asked.

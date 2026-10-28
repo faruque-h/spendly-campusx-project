@@ -1,6 +1,6 @@
 # Implementation Plan — Step 2: Registration
 
-**Spec:** `.opencode/specs/02-registration.md`
+**Spec:** `.pi/specs/02-registration.md`
 **Branch:** `feature/registration-01`
 **Files to change:** `app.py`, `templates/register.html`, `templates/base.html`,
 `static/css/style.css`
@@ -34,7 +34,7 @@ Step 3). No schema change. No changes to other routes.
 | DB file | `spendly.db` present, gitignored, seeded with `demo@spendly.com` (lowercase). `sqlite3` **CLI binary is not installed** — verification uses Python's `sqlite3` module. |
 | Tests | No test suite; `uv run pytest` exits 5. Nothing here should claim tests pass. |
 | Port 5001 | Free right now. No dev server running. |
-| Working tree | Clean except untracked spec/plan files under `.opencode/`. |
+| Working tree | Clean except untracked spec/plan files under `.pi/`. |
 
 ---
 
@@ -48,7 +48,7 @@ render flashes once, in `templates/base.html`, styled with two CSS rules that us
 `:root` variables only. Step 3 and later reuse the same markup for free.
 
 Consequences: `templates/base.html` and `static/css/style.css` join the file
-list, and `.opencode/specs/02-registration.md` is updated to say so.
+list, and `.pi/specs/02-registration.md` is updated to say so.
 
 Only `.flash` and `.flash--success` are added in this step. No `.flash--error`
 rule — Step 3 adds error styling when it actually has an error flash to show.

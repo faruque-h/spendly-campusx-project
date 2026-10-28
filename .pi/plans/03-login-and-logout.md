@@ -1,6 +1,6 @@
 # Implementation Plan — Step 3: Login and Logout
 
-**Spec:** `.opencode/specs/03-login-and-logout.md`
+**Spec:** `.pi/specs/03-login-and-logout.md`
 **Branch:** `feature/login-logout-01` (create from current `main`)
 **Files to change:** `app.py`, `templates/login.html`, `templates/base.html`,
 `static/css/style.css`
@@ -44,7 +44,7 @@ No schema change. `/profile` and all `/expenses/...` stubs stay untouched.
 | Navbar CSS | `.nav-links` = flex, `gap: 1.5rem`, `font-size: 0.9rem`, `font-weight: 500`; `.nav-links a` = `var(--ink-muted)` → `var(--ink)` on hover. **No `.nav-user` rule exists.** |
 | Tests | None. `uv run pytest` exits 5. Verification is manual/curl only. |
 | Port 5001 | Free — no dev server running. |
-| Working tree | Clean except untracked `.opencode/specs/03-login-and-logout.md`. |
+| Working tree | Clean except untracked `.pi/specs/03-login-and-logout.md`. |
 
 ---
 
