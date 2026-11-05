@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+from datetime import datetime
 
 from flask import (
     Flask,
@@ -14,6 +15,12 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database.db import get_db, init_db, seed_db
+from database.queries import (
+    get_category_breakdown,
+    get_recent_transactions,
+    get_summary_stats,
+    get_user_by_id,
+)
 
 app = Flask(__name__)
 
@@ -58,28 +65,13 @@ def inject_current_user():
                              "email": row["email"]}}
 
 
-# Step 4 placeholder data — mirrors SEED_EXPENSES in database/db.py so the
-# page matches the demo account. Replaced by per-user queries in Step 5.
-PROFILE_TRANSACTIONS = [
-    {"date": "21 Oct 2026", "description": "Electricity bill", "category": "Bills", "amount": 60.00},
-    {"date": "20 Oct 2026", "description": "New backpack", "category": "Shopping", "amount": 45.30},
-    {"date": "18 Oct 2026", "description": "Pharmacy purchase", "category": "Health", "amount": 25.40},
-    {"date": "16 Oct 2026", "description": "Lunch at the campus cafe", "category": "Food", "amount": 12.50},
-    {"date": "14 Oct 2026", "description": "Streaming subscription", "category": "Entertainment", "amount": 15.99},
-    {"date": "11 Oct 2026", "description": "Misc. stationery", "category": "Other", "amount": 8.00},
-    {"date": "07 Oct 2026", "description": "Coffee and snacks", "category": "Food", "amount": 9.25},
-    {"date": "03 Oct 2026", "description": "Bus fare", "category": "Transport", "amount": 3.75},
-]
-
-PROFILE_CATEGORY_TOTALS = [
-    ("Bills", 60.00),
-    ("Shopping", 45.30),
-    ("Health", 25.40),
-    ("Food", 21.75),
-    ("Entertainment", 15.99),
-    ("Other", 8.00),
-    ("Transport", 3.75),
-]
+@app.template_filter("display_date")
+def display_date(value):
+    """'2026-10-21' -> '21 Oct 2026'; pass anything unparseable through."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%d %b %Y")
+    except (TypeError, ValueError):
+        return value
 
 
 # ------------------------------------------------------------------ #
@@ -210,27 +202,20 @@ def profile():
     if session.get("user_id") is None:
         return redirect(url_for("login"))
 
-    total_spent = round(sum(t["amount"] for t in PROFILE_TRANSACTIONS), 2)
-    summary = {
-        "total_spent": total_spent,
-        "transaction_count": len(PROFILE_TRANSACTIONS),
-        "top_category": max(PROFILE_CATEGORY_TOTALS, key=lambda item: item[1])[0],
-    }
-    categories = [
-        {
-            "name": name,
-            "total": amount,
-            "percent": round(amount / total_spent * 100, 1),
-        }
-        for name, amount in PROFILE_CATEGORY_TOTALS
-    ]
+    user_id = session["user_id"]
+    user = get_user_by_id(user_id)
+    if user is None:
+        # Stale session for a user that no longer exists.
+        session.clear()
+        flash("Please sign in again.", "error")
+        return redirect(url_for("login"))
 
     return render_template(
         "profile.html",
-        summary=summary,
-        transactions=PROFILE_TRANSACTIONS,
-        categories=categories,
-        member_since="March 2024",
+        user=user,
+        summary=get_summary_stats(user_id),
+        transactions=get_recent_transactions(user_id),
+        categories=get_category_breakdown(user_id),
     )
 
 
