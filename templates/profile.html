@@ -12,12 +12,12 @@
         </header>
 
         <div class="profile-user-card">
-            {% set name_parts = current_user.name.split() %}
+            {% set name_parts = user.name.split() %}
             <div class="profile-avatar" aria-hidden="true">{{ name_parts[0][0] }}{{ name_parts[-1][0] if name_parts|length > 1 else '' }}</div>
             <div>
-                <p class="profile-name">{{ current_user.name }}</p>
-                <p class="profile-email">{{ current_user.email }}</p>
-                <p class="profile-since">Member since {{ member_since }}</p>
+                <p class="profile-name">{{ user.name }}</p>
+                <p class="profile-email">{{ user.email }}</p>
+                <p class="profile-since">Member since {{ user.member_since }}</p>
             </div>
         </div>
 
@@ -52,8 +52,8 @@
                         <tbody>
                             {% for t in transactions %}
                             <tr>
-                                <td class="tx-date">{{ t.date }}</td>
-                                <td>{{ t.description }}</td>
+                                <td class="tx-date">{{ t.date|display_date }}</td>
+                                <td>{{ t.description or "—" }}</td>
                                 <td><span class="badge">{{ t.category }}</span></td>
                                 <td class="tx-amount">₹{{ "%.2f"|format(t.amount) }}</td>
                             </tr>
@@ -69,8 +69,8 @@
                     {% for c in categories %}
                     <div class="breakdown-row">
                         <span class="breakdown-label">{{ c.name }}</span>
-                        <div class="bar-track"><div class="bar-fill bar-fill--{{ c.name|lower }}" style="width: {{ c.percent }}%"></div></div>
-                        <span class="breakdown-amount">₹{{ "%.2f"|format(c.total) }}</span>
+                        <div class="bar-track"><div class="bar-fill bar-fill--{{ c.name|lower }}" style="width: {{ c.pct }}%"></div></div>
+                        <span class="breakdown-amount">₹{{ "%.2f"|format(c.amount) }}</span>
                     </div>
                     {% endfor %}
                 </div>

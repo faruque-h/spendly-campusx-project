@@ -9,6 +9,8 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 - `static/css/style.css` — the single shared stylesheet. Design tokens live in `:root`; reuse them instead of hardcoding colors/fonts.
 - `static/js/main.js` — empty stub. The only JS currently is inline in `landing.html` (hero video modal).
 - `database/db.py` — SQLite helpers: `get_db()` (connection with `sqlite3.Row` and foreign keys ON), `init_db()` (creates `users` and `expenses`), `seed_db()` (one-time demo data). Database file is `spendly.db` in the repo root.
+- `database/queries.py` — read-only query helpers used by views (`get_user_by_id`, `get_summary_stats`, `get_recent_transactions`, `get_category_breakdown`). No Flask imports; each opens and closes its own connection. Add new SQL here, not inline in `app.py`.
+- `tests/` — pytest suite. `conftest.py` points `database.db.DATABASE` at a `tmp_path` DB and imports `app` lazily, so tests never touch `spendly.db`.
 - `src/expense_tracker_campusx_project/` — uv build package only; its `main()` prints a greeting. Do not put Flask app code here.
 
 ## Commands
@@ -16,8 +18,8 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 ```bash
 uv sync                        # install dependencies
 uv run python app.py           # dev server on port 5001 (not 5000)
-uv run pytest                  # currently exits 5: no tests exist yet
-uv run pytest path/to/test.py::test_name   # single test, once tests exist
+uv run pytest                  # full suite (currently 15 tests, all passing)
+uv run pytest path/to/test.py::test_name   # single test
 ```
 
 If port 5001 is already in use, a dev server is likely already running — don't start a duplicate.
@@ -40,6 +42,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 - `seed_db()` inserts only when `users` is empty, so it is safe on every startup. Demo login: `demo@spendly.com` / `demo123`.
 - Categories are a fixed list in `CATEGORIES` (`db.py`): Food, Transport, Bills, Health, Entertainment, Shopping, Other.
 - Raw SQL with `?` placeholders only — no ORM. `get_db()` returns a new connection per call; callers must close it.
+- Route-level queries live in `database/queries.py` (pure helpers, no Flask imports); views call them instead of writing SQL inline. Dates stay ISO (`YYYY-MM-DD`) in the helpers and are formatted in templates via the `display_date` filter.
 - See `.pi/specs/01-database-setup.md` for the schema contract.
 
 ## Implemented vs stub routes
@@ -50,7 +53,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 | `GET /register` | Implemented — renders `register.html` |
 | `GET /login` | Implemented — renders `login.html` |
 | `GET /logout` | Implemented — Step 3 (`session.clear()` + flash) |
-| `GET /profile` | Implemented — Step 4 (login-guarded; hardcoded demo data until Step 5) |
+| `GET /profile` | Implemented — Step 5 (login-guarded; live per-user queries via `database/queries.py`) |
 | `GET /expenses/add` | Stub — Step 7 |
 | `GET /expenses/<id>/edit` | Stub — Step 8 |
 | `GET /expenses/<id>/delete` | Stub — Step 9 |
@@ -60,7 +63,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 ## Gotchas
 
 - The placeholder routes in `app.py` (`/expenses/add`, `/expenses/<id>/edit`, `/expenses/<id>/delete`) intentionally return plain text; they are course steps to implement, not bugs.
-- There is no test suite, lint, formatter, typecheck, or CI config. `pytest` and `pytest-flask` are installed, but don't claim tests pass until tests actually exist.
+- Tests live in `tests/` (`uv run pytest`). There is no lint, formatter, typecheck, or CI config. Tests use a `tmp_path` database and must never write to `spendly.db`.
 - Dependencies are managed with uv (`pyproject.toml` + `uv.lock`); `requirements.txt` duplicates the pinned deps. Update pyproject/uv.lock as the source of truth.
 - Vanilla JS only — no frontend frameworks or page libraries. The landing modal sets its YouTube iframe to `about:blank` on close to stop playback; preserve that.
 - The landing modal's CSS and JS live in `landing.html`'s `head`/`scripts` blocks. Shared styling stays in `style.css`.
