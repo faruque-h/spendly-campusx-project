@@ -9,7 +9,7 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 - `static/css/style.css` — the single shared stylesheet. Design tokens live in `:root`; reuse them instead of hardcoding colors/fonts.
 - `static/js/main.js` — empty stub. The only JS currently is inline in `landing.html` (hero video modal).
 - `database/db.py` — SQLite helpers: `get_db()` (connection with `sqlite3.Row` and foreign keys ON), `init_db()` (creates `users` and `expenses`), `seed_db()` (one-time demo data). Database file is `spendly.db` in the repo root.
-- `database/queries.py` — read-only query helpers used by views (`get_user_by_id`, `get_summary_stats`, `get_recent_transactions`, `get_category_breakdown`). No Flask imports; each opens and closes its own connection. Add new SQL here, not inline in `app.py`.
+- `database/queries.py` — read-only query helpers used by views (`get_user_by_id`, `get_summary_stats`, `get_recent_transactions`, `get_category_breakdown`). The three expense helpers take optional `date_from` / `date_to` ISO bounds (inclusive) via the shared `_date_filter()`. No Flask imports; each opens and closes its own connection. Add new SQL here, not inline in `app.py`.
 - `tests/` — pytest suite. `conftest.py` points `database.db.DATABASE` at a `tmp_path` DB and imports `app` lazily, so tests never touch `spendly.db`.
 - `src/expense_tracker_campusx_project/` — uv build package only; its `main()` prints a greeting. Do not put Flask app code here.
 
@@ -18,7 +18,7 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 ```bash
 uv sync                        # install dependencies
 uv run python app.py           # dev server on port 5001 (not 5000)
-uv run pytest                  # full suite (currently 15 tests, all passing)
+uv run pytest                  # full suite (currently 65 tests, all passing)
 uv run pytest path/to/test.py::test_name   # single test
 ```
 
@@ -53,7 +53,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 | `GET /register` | Implemented — renders `register.html` |
 | `GET /login` | Implemented — renders `login.html` |
 | `GET /logout` | Implemented — Step 3 (`session.clear()` + flash) |
-| `GET /profile` | Implemented — Step 5 (login-guarded; live per-user queries via `database/queries.py`) |
+| `GET /profile` | Implemented — Steps 5–6 (login-guarded; live per-user queries + `date_from`/`date_to` filter via `database/queries.py`) |
 | `GET /expenses/add` | Stub — Step 7 |
 | `GET /expenses/<id>/edit` | Stub — Step 8 |
 | `GET /expenses/<id>/delete` | Stub — Step 9 |
@@ -67,6 +67,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 - Dependencies are managed with uv (`pyproject.toml` + `uv.lock`); `requirements.txt` duplicates the pinned deps. Update pyproject/uv.lock as the source of truth.
 - Vanilla JS only — no frontend frameworks or page libraries. The landing modal sets its YouTube iframe to `about:blank` on close to stop playback; preserve that.
 - The landing modal's CSS and JS live in `landing.html`'s `head`/`scripts` blocks. Shared styling stays in `style.css`.
+- `/profile` filter: `date_from` / `date_to` are parsed and normalised in `app.py` (`_parse_iso_date`), one-sided ranges are allowed, an inverted range flashes and falls back to unfiltered, and presets (`PROFILE_PRESETS` / `_build_presets`) all end today. Query-string-only, no session state.
 - Successful login redirects to `/profile` (not `/`), and `GET /login` while already signed in does the same. `/logout` still returns to `/`.
-- `.env` and SQLite `*.db` files are gitignored. No dotenv loader exists; `app.py` reads only `SPENDLY_SECRET_KEY`, falling back to a dev-only value. `spendly.db` is generated, not source — schema and seed data live in `database/db.py`.
+- `.env` and SQLite `*.db` files are gitignored. No dotenv loader exists; `app.py` reads only `SPENDLY_SECRET_KEY` (plus opt-in `SPENDLY_DEBUG` and `SPENDLY_SECURE_COOKIES`), falling back to dev-only values. `spendly.db` is generated, not source — schema and seed data live in `database/db.py`.
 - `README.md` is empty — use this file and `app.py` as the source of truth.

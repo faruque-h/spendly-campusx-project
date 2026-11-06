@@ -1,7 +1,8 @@
 """Read-only query helpers for Spendly. No Flask imports.
 
 Every function opens its own connection via get_db() and closes it before
-returning, so callers never manage connections.
+returning, so callers never manage connections. Optional date_from/date_to
+(ISO YYYY-MM-DD, inclusive) narrow every helper to that range.
 """
 
 from datetime import datetime
@@ -15,6 +16,24 @@ def _format_month(value):
         return datetime.fromisoformat(value).strftime("%B %Y")
     except (TypeError, ValueError):
         return (value or "")[:7]
+
+
+def _date_filter(date_from=None, date_to=None):
+    """Inclusive `date` bounds as a ``" AND ..."`` fragment plus params.
+
+    Returns ``("", ())`` when neither bound is set. The fragment only composes
+    onto a query that already has a WHERE clause.
+    """
+    clauses, params = [], []
+    if date_from:
+        clauses.append("date >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("date <= ?")
+        params.append(date_to)
+    if not clauses:
+        return "", ()
+    return " AND " + " AND ".join(clauses), tuple(params)
 
 
 def get_user_by_id(user_id):
@@ -36,18 +55,20 @@ def get_user_by_id(user_id):
     }
 
 
-def get_summary_stats(user_id):
+def get_summary_stats(user_id, date_from=None, date_to=None):
+    clause, date_params = _date_filter(date_from, date_to)
+    params = (user_id, *date_params)
     conn = get_db()
     try:
         row = conn.execute(
             "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count "
-            "FROM expenses WHERE user_id = ?",
-            (user_id,),
+            "FROM expenses WHERE user_id = ?" + clause,
+            params,
         ).fetchone()
         top = conn.execute(
-            "SELECT category FROM expenses WHERE user_id = ? "
-            "GROUP BY category ORDER BY SUM(amount) DESC, category ASC LIMIT 1",
-            (user_id,),
+            "SELECT category FROM expenses WHERE user_id = ?" + clause +
+            " GROUP BY category ORDER BY SUM(amount) DESC, category ASC LIMIT 1",
+            params,
         ).fetchone()
     finally:
         conn.close()
@@ -59,13 +80,15 @@ def get_summary_stats(user_id):
     }
 
 
-def get_recent_transactions(user_id, limit=10):
+def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
+    clause, date_params = _date_filter(date_from, date_to)
     conn = get_db()
     try:
         rows = conn.execute(
             "SELECT date, description, category, amount FROM expenses "
-            "WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ?",
-            (user_id, int(limit)),
+            "WHERE user_id = ?" + clause +
+            " ORDER BY date DESC, id DESC LIMIT ?",
+            (user_id, *date_params, int(limit)),
         ).fetchall()
     finally:
         conn.close()
@@ -81,14 +104,15 @@ def get_recent_transactions(user_id, limit=10):
     ]
 
 
-def get_category_breakdown(user_id):
+def get_category_breakdown(user_id, date_from=None, date_to=None):
+    clause, date_params = _date_filter(date_from, date_to)
     conn = get_db()
     try:
         rows = conn.execute(
             "SELECT category, SUM(amount) AS total FROM expenses "
-            "WHERE user_id = ? GROUP BY category "
+            "WHERE user_id = ?" + clause + " GROUP BY category "
             "ORDER BY total DESC, category ASC",
-            (user_id,),
+            (user_id, *date_params),
         ).fetchall()
     finally:
         conn.close()
