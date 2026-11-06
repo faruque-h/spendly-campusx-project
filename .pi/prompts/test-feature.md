@@ -41,6 +41,10 @@ Launch the **spendly-test-writer** subagent with a short brief that states:
 - Rule: derive expectations from the spec, not from the implementation; cover
   happy paths, edge/empty cases, auth guards, validation errors, ownership
   isolation, and DB side effects.
+- Limits: write only under `tests/`; if you run anything, it must be exactly one
+  `uv run pytest <the target file> -q`. Never the full suite, never bare
+  `pytest`, never `pip install`, never start the dev server — Step 2 owns the
+  authoritative run.
 - Stop condition: report instead of writing when the spec is ambiguous or the
   implementation diverges from it.
 
@@ -71,6 +75,8 @@ blocking, with:
 - Do not fix any application code, regardless of results; report instead.
 - Do not run tests beyond the target file, and never bare `pytest`,
   `python -m pytest`, or `pip install` — this project runs through `uv run`.
+  Only Step 2's runner performs the authoritative run; if the writer ran the
+  full suite, note it as a process violation in the final report.
 - If the writer could not write the test file, stop and report the reason.
 
 ## Final output

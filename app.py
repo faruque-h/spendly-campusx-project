@@ -1,3 +1,4 @@
+import math
 import os
 import re
 import sqlite3
@@ -14,12 +15,13 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database.db import get_db, init_db, seed_db
+from database.db import CATEGORIES, get_db, init_db, seed_db
 from database.queries import (
     get_category_breakdown,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_id,
+    insert_expense,
 )
 
 app = Flask(__name__)
@@ -291,13 +293,81 @@ def profile():
     )
 
 
+@app.route("/expenses/add", methods=["GET", "POST"])
+def add_expense():
+    if session.get("user_id") is None:
+        return redirect(url_for("login"))
+
+    if get_user_by_id(session["user_id"]) is None:
+        # Stale session for a user that no longer exists.
+        session.clear()
+        flash("Please sign in again.", "error")
+        return redirect(url_for("login"))
+
+    # Pre-filled values: blank on GET (date defaults to today), sticky on error.
+    form = {
+        "amount": "",
+        "category": CATEGORIES[0],
+        "date": date.today().isoformat(),
+        "description": "",
+    }
+
+    if request.method == "POST":
+        form = {
+            "amount": (request.form.get("amount") or "").strip(),
+            "category": request.form.get("category") or "",
+            "date": (request.form.get("date") or "").strip(),
+            "description": (request.form.get("description") or "").strip(),
+        }
+
+        # Normalise before validating: round(0.004, 2) is 0.0, so validating
+        # the raw value would let a sub-cent amount through as zero.
+        # float() also parses 'nan' and 'inf', so the checks below guard them.
+        amount = None
+        try:
+            amount = round(float(form["amount"]), 2)
+        except ValueError:
+            pass  # unparsable; the None check below reports it
+
+        iso_date = _parse_iso_date(form["date"])
+
+        error = None
+        if amount is None or not math.isfinite(amount) or amount <= 0:
+            error = "Please enter an amount greater than 0."
+        elif form["category"] not in CATEGORIES:
+            error = "Please choose a valid category."
+        elif iso_date is None:
+            error = "Please enter a valid date (YYYY-MM-DD)."
+        elif len(form["description"]) > 200:
+            error = "Description must be 200 characters or fewer."
+
+        if error is None:
+            try:
+                insert_expense(
+                    session["user_id"],
+                    amount,
+                    form["category"],
+                    iso_date,
+                    form["description"] or None,
+                )
+            except sqlite3.IntegrityError:
+                # Stale session for a user that no longer exists.
+                session.clear()
+                flash("Please sign in again.", "error")
+                return redirect(url_for("login"))
+            flash("Expense added.", "success")
+            return redirect(url_for("profile"))
+
+        return render_template("add_expense.html", categories=CATEGORIES,
+                               error=error, **form), 400
+
+    return render_template("add_expense.html", categories=CATEGORIES,
+                           error=None, **form)
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/expenses/add")
-def add_expense():
-    return "Add expense — coming in Step 7"
 
 
 @app.route("/expenses/<int:id>/edit")
