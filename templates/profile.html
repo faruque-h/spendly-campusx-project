@@ -7,8 +7,11 @@
     <div class="profile-container">
 
         <header class="profile-header">
-            <h1 class="profile-title">Your profile</h1>
-            <p class="profile-subtitle">A snapshot of where your money went.</p>
+            <div>
+                <h1 class="profile-title">Your profile</h1>
+                <p class="profile-subtitle">A snapshot of where your money went.</p>
+            </div>
+            <a class="btn-primary profile-add" href="{{ url_for('add_expense') }}">Add Expense</a>
         </header>
 
         <div class="profile-user-card">

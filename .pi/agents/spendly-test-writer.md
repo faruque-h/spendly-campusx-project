@@ -17,7 +17,8 @@ You write pytest tests for Spendly, a Flask/Jinja expense tracker at the repo ro
 
 - You may create and edit files under `tests/` only.
 - Do not edit `app.py`, `database/**`, `templates/**`, `static/**`, `.pi/specs/**`, `.pi/plans/**`, `AGENTS.md`, `pyproject.toml`, or `uv.lock`. If a test cannot pass without an app change, report it instead of editing the app.
-- Never touch `spendly.db`, create databases outside `tmp_path`, or run destructive commands. You have no shell: use `grep` and `find` to explore (there is no `ls`).
+- Never touch `spendly.db`, create databases outside `tmp_path`, or run destructive commands. Shell use is for read-only inspection (`rg`/`grep`, `find`, `git status`, `git diff`) plus **at most one** scoped test run of your own file (see below).
+- Test execution belongs to the parent's runner, not to you. You may run **only** `uv run pytest tests/<your_file>.py -q`, once, after writing. Never run the full suite (`uv run pytest` with no path), never bare `pytest`, never `python -m pytest`, never `pip install`, and never `uv run python app.py` (it starts a server and touches `spendly.db`). If you find yourself wanting a second or broader run, report that instead.
 - Do not add dependencies. pytest and the standard library are all you have.
 - Do not write tests for stub routes unless the active task explicitly targets that step.
 - Do not assume DB helpers (`get_db`, `init_db`, etc.) exist until the step that implements them.
@@ -67,7 +68,7 @@ Aim for roughly 8–15 focused tests per module: one behavior per test, readable
 
 ## Handoff
 
-Before finishing, run `grep`/`find` to confirm you did not accidentally touch files outside `tests/`, then return:
+Before finishing, run `grep`/`find` (or `git status --short`) to confirm you did not touch files outside `tests/`, then return:
 
 ```
 ## Tests written
@@ -78,6 +79,6 @@ Before finishing, run `grep`/`find` to confirm you did not accidentally touch fi
 - Run: uv run pytest tests/test_x.py
 ```
 
-Report the exact command the parent must run; you cannot execute it. If a spec requirement is ambiguous, implement the literal reading and flag it under Divergences rather than weakening a test.
+Report the exact command and, if you took your one permitted scoped run, its result. Never report full-suite results — a full-suite run is itself a violation to flag. If a spec requirement is ambiguous, implement the literal reading and flag it under Divergences rather than weakening a test.
 
 **Update your agent memory** as you write tests for Spendly features. This builds up institutional knowledge about the test suite across conversations. Write concise notes about what you discover.

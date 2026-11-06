@@ -1,8 +1,9 @@
-"""Read-only query helpers for Spendly. No Flask imports.
+"""Query helpers for Spendly. No Flask imports.
 
 Every function opens its own connection via get_db() and closes it before
 returning, so callers never manage connections. Optional date_from/date_to
-(ISO YYYY-MM-DD, inclusive) narrow every helper to that range.
+(ISO YYYY-MM-DD, inclusive) narrow every read helper to that range.
+insert_expense() is the single write path.
 """
 
 from datetime import datetime
@@ -135,3 +136,19 @@ def get_category_breakdown(user_id, date_from=None, date_to=None):
     # Integer rounding rarely lands on 100: give the remainder to the largest.
     breakdown[0]["pct"] += 100 - sum(item["pct"] for item in breakdown)
     return breakdown
+
+
+def insert_expense(user_id, amount, category, date, description=None):
+    """Insert one expense for `user_id`; return the new row id."""
+    conn = get_db()
+    try:
+        with conn:  # commits on success, rolls back on error
+            cursor = conn.execute(
+                "INSERT INTO expenses "
+                "(user_id, amount, category, date, description) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, amount, category, date, description),
+            )
+        return cursor.lastrowid
+    finally:
+        conn.close()
