@@ -1,7 +1,7 @@
 import os
 import re
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import (
     Flask,
@@ -27,9 +27,65 @@ app = Flask(__name__)
 # Flash/session signing key. Set SPENDLY_SECRET_KEY in production; the
 # fallback is for local development only.
 app.config["SECRET_KEY"] = os.environ.get("SPENDLY_SECRET_KEY", "dev-only-change-me")
+# Secure cookies need HTTPS, so they stay opt-in for local development.
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+if os.environ.get("SPENDLY_SECURE_COOKIES") == "1":
+    app.config["SESSION_COOKIE_SECURE"] = True
 
 # Simple, deliberately permissive email shape: local@domain.tld
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# ------------------------------------------------------------------ #
+# Date filter helpers                                                 #
+# ------------------------------------------------------------------ #
+
+# Presets: key, label, and how many months back the window starts.
+PROFILE_PRESETS = (
+    ("this_month", "This Month", 0),
+    ("last_3_months", "Last 3 Months", 2),
+    ("last_6_months", "Last 6 Months", 5),
+)
+
+
+def _parse_iso_date(value):
+    """Normalise 'YYYY-MM-DD' to canonical ISO; None when missing or invalid.
+
+    strptime accepts unpadded input ('2026-1-5') but SQLite compares the TEXT
+    `date` column lexicographically, so only zero-padded values may reach SQL.
+    """
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value.strip(), "%Y-%m-%d").date().isoformat()
+    except ValueError:
+        return None
+
+
+def _month_start(day, months_back=0):
+    """First day of the month `months_back` months before `day`'s month."""
+    total = day.year * 12 + day.month - 1 - months_back
+    year, month = divmod(total, 12)
+    return date(year, month + 1, 1).isoformat()
+
+
+def _build_presets(today, date_from, date_to):
+    """Preset windows for the filter bar, each annotated with `active`."""
+    presets = [
+        {
+            "key": key,
+            "label": label,
+            "date_from": _month_start(today, months_back),
+            "date_to": today.isoformat(),
+        }
+        for key, label, months_back in PROFILE_PRESETS
+    ]
+    presets.append({"key": "all_time", "label": "All Time",
+                    "date_from": None, "date_to": None})
+    for preset in presets:
+        preset["active"] = (preset["date_from"] == date_from
+                            and preset["date_to"] == date_to)
+    return presets
+
 
 # Ensure the database and demo data exist before any route is used.
 with app.app_context():
@@ -210,12 +266,28 @@ def profile():
         flash("Please sign in again.", "error")
         return redirect(url_for("login"))
 
+    date_from = _parse_iso_date(request.args.get("date_from"))
+    date_to = _parse_iso_date(request.args.get("date_to"))
+
+    # An inverted range is a user error: fall back to the unfiltered view.
+    if date_from and date_to and date_from > date_to:
+        flash("Start date must be before end date.", "error")
+        date_from = date_to = None
+
+    today = date.today()
     return render_template(
         "profile.html",
         user=user,
-        summary=get_summary_stats(user_id),
-        transactions=get_recent_transactions(user_id),
-        categories=get_category_breakdown(user_id),
+        summary=get_summary_stats(user_id, date_from=date_from, date_to=date_to),
+        transactions=get_recent_transactions(
+            user_id, date_from=date_from, date_to=date_to
+        ),
+        categories=get_category_breakdown(
+            user_id, date_from=date_from, date_to=date_to
+        ),
+        date_from=date_from,
+        date_to=date_to,
+        presets=_build_presets(today, date_from, date_to),
     )
 
 
@@ -239,4 +311,5 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    # The Werkzeug debugger is an RCE console: opt in explicitly, never default on.
+    app.run(debug=os.environ.get("SPENDLY_DEBUG") == "1", port=5001)
