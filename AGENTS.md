@@ -7,9 +7,9 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 - `app.py` — Flask app and all routes; the entrypoint. A `@app.context_processor` injects `current_user` (`id`, `name`, `email`) into every template (Step 3), so templates can branch on the signed-in state.
 - `templates/` — Jinja pages. Every page extends `base.html`, which owns the navbar, footer, and `head` / `content` / `scripts` blocks.
 - `static/css/style.css` — the single shared stylesheet. Design tokens live in `:root`; reuse them instead of hardcoding colors/fonts.
-- `static/js/main.js` — empty stub. The only JS currently is inline in `landing.html` (hero video modal).
+- `static/js/main.js` — shared behaviour: a delegated `data-confirm` submit prompt (used by the profile delete forms). The landing hero modal's JS is still inline in `landing.html`.
 - `database/db.py` — SQLite helpers: `get_db()` (connection with `sqlite3.Row` and foreign keys ON), `init_db()` (creates `users` and `expenses`), `seed_db()` (one-time demo data). Database file is `spendly.db` in the repo root.
-- `database/queries.py` — query helpers used by views (`get_user_by_id`, `get_summary_stats`, `get_recent_transactions`, `get_category_breakdown`, `get_expense_by_id`, plus `insert_expense` / `update_expense`, the two write paths). The three read expense helpers take optional `date_from` / `date_to` ISO bounds (inclusive) via the shared `_date_filter()`. No Flask imports; each opens and closes its own connection. Add new SQL here, not inline in `app.py`.
+- `database/queries.py` — query helpers used by views (`get_user_by_id`, `get_summary_stats`, `get_recent_transactions`, `get_category_breakdown`, `get_expense_by_id`, plus `insert_expense` / `update_expense` / `remove_expense`, the three write paths). The three read expense helpers take optional `date_from` / `date_to` ISO bounds (inclusive) via the shared `_date_filter()`. No Flask imports; each opens and closes its own connection. Add new SQL here, not inline in `app.py`.
 - `tests/` — pytest suite. `conftest.py` points `database.db.DATABASE` at a `tmp_path` DB and imports `app` lazily, so tests never touch `spendly.db`.
 - `src/expense_tracker_campusx_project/` — uv build package only; its `main()` prints a greeting. Do not put Flask app code here.
 
@@ -18,7 +18,7 @@ Spendly is a Flask/Jinja expense tracker built as a step-by-step course scaffold
 ```bash
 uv sync                        # install dependencies
 uv run python app.py           # dev server on port 5001 (not 5000)
-uv run pytest                  # full suite (currently 139 tests, all passing)
+uv run pytest                  # full suite (currently 158 tests, all passing)
 uv run pytest path/to/test.py::test_name   # single test
 ```
 
@@ -45,7 +45,7 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 - Route-level queries live in `database/queries.py` (pure helpers, no Flask imports); views call them instead of writing SQL inline. Dates stay ISO (`YYYY-MM-DD`) in the helpers and are formatted in templates via the `display_date` filter.
 - See `.pi/specs/01-database-setup.md` for the schema contract.
 
-## Implemented vs stub routes
+## Implemented routes
 
 | Route | Status |
 |---|---|
@@ -56,13 +56,13 @@ rm -f spendly.db               # delete local DB; demo data is reseeded on next 
 | `GET /profile` | Implemented — Steps 5–6 (login-guarded; live per-user queries + `date_from`/`date_to` filter via `database/queries.py`) |
 | `GET /expenses/add` | Implemented — Step 7 (`GET` form + `POST` validate/insert, redirects to `/profile`) |
 | `GET` / `POST /expenses/<id>/edit` | Implemented — Step 8 (`GET` prefilled form + `POST` validate/update; 404 for missing/foreign id, redirects to `/profile`) |
-| `GET /expenses/<id>/delete` | Stub — Step 9 |
+| `POST /expenses/<id>/delete` | Implemented — Step 9 (single owned `DELETE`; 404 for missing/foreign id; flash + redirect to `/profile`) |
 
-**Do not implement a stub route unless the active task explicitly targets that step.**
+All routes are implemented — there are no placeholder stubs left.
 
 ## Gotchas
 
-- The placeholder route in `app.py` (`/expenses/<id>/delete`) intentionally returns plain text; it is a course step to implement, not a bug.
+- Destructive actions are `POST` + confirm: `/expenses/<id>/delete` returns 405 for `GET`, and the profile form's `data-confirm` is handled by `static/js/main.js` (`window.confirm`, no framework).
 - `/expenses/add` and `/expenses/<id>/edit` share `_parse_expense_form()` in `app.py`; both reject validation failures with status **400** and sticky fields, store amounts rounded to 2 dp, and normalise dates to zero-padded ISO. The edit route additionally returns 404 for a missing or foreign-owned id (ownership is enforced in SQL on both the `SELECT` and the `UPDATE`).
 - Tests live in `tests/` (`uv run pytest`). There is no lint, formatter, typecheck, or CI config. Tests use a `tmp_path` database and must never write to `spendly.db`.
 - Dependencies are managed with uv (`pyproject.toml` + `uv.lock`); `requirements.txt` duplicates the pinned deps. Update pyproject/uv.lock as the source of truth.
