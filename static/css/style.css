@@ -892,6 +892,27 @@ a { color: inherit; text-decoration: none; }
     text-decoration: underline;
 }
 
+.tx-delete-form {
+    display: inline;
+    margin-left: var(--space-3);
+}
+
+.tx-delete-btn {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--ink-muted);
+    cursor: pointer;
+}
+
+.tx-delete-btn:hover {
+    color: var(--danger);
+    text-decoration: underline;
+}
+
 .badge {
     display: inline-block;
     padding: 0.15rem 0.55rem;

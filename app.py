@@ -24,6 +24,7 @@ from database.queries import (
     get_summary_stats,
     get_user_by_id,
     insert_expense,
+    remove_expense,
     update_expense,
 )
 
@@ -427,14 +428,24 @@ def edit_expense(id):
                            expense_id=id, error=None, **form)
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/delete")
+@app.route("/expenses/<int:id>/delete", methods=["POST"])
 def delete_expense(id):
-    return "Delete expense — coming in Step 9"
+    if session.get("user_id") is None:
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    if get_user_by_id(user_id) is None:
+        # Stale session for a user that no longer exists.
+        session.clear()
+        flash("Please sign in again.", "error")
+        return redirect(url_for("login"))
+
+    if remove_expense(id, user_id) == 0:
+        # Missing, or owned by someone else — indistinguishable by design.
+        abort(404)
+
+    flash("Expense deleted.", "success")
+    return redirect(url_for("profile"))
 
 
 if __name__ == "__main__":
