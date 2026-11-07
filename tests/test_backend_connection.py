@@ -55,7 +55,7 @@ def test_get_recent_transactions(demo_user_id):
 
     assert len(transactions) == SEED_COUNT
     for item in transactions:
-        assert set(item) == {"date", "description", "category", "amount"}
+        assert set(item) == {"id", "date", "description", "category", "amount"}
     dates = [item["date"] for item in transactions]
     assert dates == sorted(dates, reverse=True)
     assert sum(item["amount"] for item in transactions) == pytest.approx(SEED_TOTAL)

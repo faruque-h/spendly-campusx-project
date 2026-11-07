@@ -3,7 +3,7 @@
 Every function opens its own connection via get_db() and closes it before
 returning, so callers never manage connections. Optional date_from/date_to
 (ISO YYYY-MM-DD, inclusive) narrow every read helper to that range.
-insert_expense() is the single write path.
+insert_expense() and update_expense() are the two write paths.
 """
 
 from datetime import datetime
@@ -86,7 +86,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT date, description, category, amount FROM expenses "
+            "SELECT id, date, description, category, amount FROM expenses "
             "WHERE user_id = ?" + clause +
             " ORDER BY date DESC, id DESC LIMIT ?",
             (user_id, *date_params, int(limit)),
@@ -96,6 +96,7 @@ def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
 
     return [
         {
+            "id": row["id"],
             "date": row["date"],
             "description": row["description"],
             "category": row["category"],
@@ -150,5 +151,44 @@ def insert_expense(user_id, amount, category, date, description=None):
                 (user_id, amount, category, date, description),
             )
         return cursor.lastrowid
+    finally:
+        conn.close()
+
+
+def get_expense_by_id(expense_id, user_id):
+    """One expense as a dict, or None if missing or not owned by `user_id`."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, amount, category, date, description FROM expenses "
+            "WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "amount": row["amount"],
+        "category": row["category"],
+        "date": row["date"],
+        "description": row["description"],
+    }
+
+
+def update_expense(expense_id, user_id, amount, category, date,
+                   description=None):
+    """Update one owned expense; return the number of rows changed (0 or 1)."""
+    conn = get_db()
+    try:
+        with conn:  # commits on success, rolls back on error
+            cursor = conn.execute(
+                "UPDATE expenses SET amount = ?, category = ?, date = ?, "
+                "description = ? WHERE id = ? AND user_id = ?",
+                (amount, category, date, description, expense_id, user_id),
+            )
+        return cursor.rowcount
     finally:
         conn.close()

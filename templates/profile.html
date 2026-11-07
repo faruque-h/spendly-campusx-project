@@ -74,6 +74,7 @@
                                 <th scope="col">Description</th>
                                 <th scope="col">Category</th>
                                 <th scope="col" class="tx-amount">Amount</th>
+                                <th scope="col" class="tx-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -83,10 +84,13 @@
                                 <td>{{ t.description or "—" }}</td>
                                 <td><span class="badge">{{ t.category }}</span></td>
                                 <td class="tx-amount">₹{{ "%.2f"|format(t.amount) }}</td>
+                                <td class="tx-actions">
+                                    <a class="tx-action-link" href="{{ url_for('edit_expense', id=t.id) }}">Edit</a>
+                                </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td class="empty-note" colspan="4">No transactions in this range.</td>
+                                <td class="empty-note" colspan="5">No transactions in this range.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

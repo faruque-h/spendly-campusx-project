@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from flask import (
     Flask,
+    abort,
     flash,
     redirect,
     render_template,
@@ -18,10 +19,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from database.db import CATEGORIES, get_db, init_db, seed_db
 from database.queries import (
     get_category_breakdown,
+    get_expense_by_id,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_id,
     insert_expense,
+    update_expense,
 )
 
 app = Flask(__name__)
@@ -87,6 +90,49 @@ def _build_presets(today, date_from, date_to):
         preset["active"] = (preset["date_from"] == date_from
                             and preset["date_to"] == date_to)
     return presets
+
+
+# ------------------------------------------------------------------ #
+# Expense form helpers                                                #
+# ------------------------------------------------------------------ #
+
+def _parse_expense_form(form_data):
+    """Normalise + validate the add/edit expense form.
+
+    Returns (sticky fields, error-or-None, amount, iso_date). `amount` and
+    `iso_date` are only meaningful when `error` is None.
+    """
+    form = {
+        "amount": (form_data.get("amount") or "").strip(),
+        "category": form_data.get("category") or "",
+        "date": (form_data.get("date") or "").strip(),
+        "description": (form_data.get("description") or "").strip(),
+    }
+
+    # Normalise before validating: round(0.004, 2) is 0.0, so validating the
+    # raw value would let a sub-cent amount through as zero. float() also
+    # parses 'nan' and 'inf', so the checks below guard them.
+    amount = None
+    try:
+        amount = round(float(form["amount"]), 2)
+    except ValueError:
+        pass  # unparsable; the None check below reports it
+
+    iso_date = _parse_iso_date(form["date"])
+
+    error = None
+    if amount is None or not math.isfinite(amount) or amount <= 0:
+        error = "Please enter an amount greater than 0."
+    elif form["category"] not in CATEGORIES:
+        error = "Please choose a valid category."
+    elif iso_date is None:
+        error = "Please enter a valid date (YYYY-MM-DD)."
+    elif len(form["description"]) > 200:
+        error = "Description must be 200 characters or fewer."
+
+    if error is not None:
+        return form, error, None, None
+    return form, error, amount, iso_date
 
 
 # Ensure the database and demo data exist before any route is used.
@@ -313,33 +359,7 @@ def add_expense():
     }
 
     if request.method == "POST":
-        form = {
-            "amount": (request.form.get("amount") or "").strip(),
-            "category": request.form.get("category") or "",
-            "date": (request.form.get("date") or "").strip(),
-            "description": (request.form.get("description") or "").strip(),
-        }
-
-        # Normalise before validating: round(0.004, 2) is 0.0, so validating
-        # the raw value would let a sub-cent amount through as zero.
-        # float() also parses 'nan' and 'inf', so the checks below guard them.
-        amount = None
-        try:
-            amount = round(float(form["amount"]), 2)
-        except ValueError:
-            pass  # unparsable; the None check below reports it
-
-        iso_date = _parse_iso_date(form["date"])
-
-        error = None
-        if amount is None or not math.isfinite(amount) or amount <= 0:
-            error = "Please enter an amount greater than 0."
-        elif form["category"] not in CATEGORIES:
-            error = "Please choose a valid category."
-        elif iso_date is None:
-            error = "Please enter a valid date (YYYY-MM-DD)."
-        elif len(form["description"]) > 200:
-            error = "Description must be 200 characters or fewer."
+        form, error, amount, iso_date = _parse_expense_form(request.form)
 
         if error is None:
             try:
@@ -365,14 +385,51 @@ def add_expense():
                            error=None, **form)
 
 
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
+def edit_expense(id):
+    if session.get("user_id") is None:
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    if get_user_by_id(user_id) is None:
+        # Stale session for a user that no longer exists.
+        session.clear()
+        flash("Please sign in again.", "error")
+        return redirect(url_for("login"))
+
+    expense = get_expense_by_id(id, user_id)
+    if expense is None:
+        abort(404)
+
+    if request.method == "POST":
+        form, error, amount, iso_date = _parse_expense_form(request.form)
+        if error is None:
+            changed = update_expense(
+                id, user_id, amount, form["category"], iso_date,
+                form["description"] or None,
+            )
+            if changed == 0:
+                # Row deleted between the GET and this POST.
+                abort(404)
+            flash("Expense updated.", "success")
+            return redirect(url_for("profile"))
+
+        return render_template("edit_expense.html", categories=CATEGORIES,
+                               expense_id=id, error=error, **form), 400
+
+    form = {
+        "amount": f"{expense['amount']:.2f}",
+        "category": expense["category"],
+        "date": expense["date"],
+        "description": expense["description"] or "",
+    }
+    return render_template("edit_expense.html", categories=CATEGORIES,
+                           expense_id=id, error=None, **form)
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/edit")
-def edit_expense(id):
-    return "Edit expense — coming in Step 8"
 
 
 @app.route("/expenses/<int:id>/delete")
